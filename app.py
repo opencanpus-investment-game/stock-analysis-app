@@ -35,7 +35,7 @@ STOCK_INFO = {
     "キラキラ商事": dict(
         color="#eb6834",
         desc="SNSで話題の商品を次々と仕掛ける商社。最近ニュースでよく名前を見かける。",
-        hint="期間を「直近15日」と「全期間」で切り替えてみよう。印象は変わる?",
+        hint="期間を「直近3年」と「全期間」で切り替えてみよう。印象は変わる?",
     ),
     "かさ屋HD": dict(
         color="#4a3aa7",
@@ -65,18 +65,18 @@ def load_data():
     wide = wide[[c for c in STOCK_INFO if c in wide.columns]]  # 表示順を固定
     returns = wide.pct_change().dropna()
     stats = pd.DataFrame({
-        "平均日次リターン%": returns.mean() * 100,
-        "ボラ%": returns.std() * 100,
+        "平均年リターン%": ((wide.iloc[-1] / wide.iloc[0]) ** (1 / 15) - 1) * 100,
+        "ボラ%": returns.std() * (12 ** 0.5) * 100,
         "全期間%": (wide.iloc[-1] / wide.iloc[0] - 1) * 100,
-        "直近15日%": (wide.iloc[-1] / wide.iloc[-16] - 1) * 100,
+        "直近3年%": (wide.iloc[-1] / wide.iloc[-37] - 1) * 100,
     })
     return wide, returns, stats
 
 
 def vol_label(v: float) -> str:
-    if v < 0.7:
+    if v < 3.0:
         return "小"
-    if v < 2.0:
+    if v < 7.0:
         return "中"
     return "大"
 
@@ -99,7 +99,7 @@ def base_layout(fig: go.Figure, height: int = 320) -> go.Figure:
 wide, returns, stats = load_data()
 
 st.title("📈 株式分析ツール")
-st.caption("6つの会社の過去90日の株価データ。分析して、投資する会社を決めよう。")
+st.caption("6つの会社の過去15年の株価データ。分析して、投資する会社を決めよう。")
 
 tab_look, tab_compare = st.tabs(["🔍 みる", "⚖️ くらべる"])
 
@@ -110,23 +110,23 @@ with tab_look:
 
     st.markdown(f"**{name}** — {info['desc']}")
 
-    period = st.radio("期間", ["全期間(90日)", "直近15日"], horizontal=True,
+    period = st.radio("期間", ["全期間(15年)", "直近3年"], horizontal=True,
                       label_visibility="collapsed")
-    series = wide[name] if period.startswith("全期間") else wide[name].iloc[-16:]
+    series = wide[name] if period.startswith("全期間") else wide[name].iloc[-37:]
 
     fig = go.Figure(go.Scatter(x=series.index, y=series.values, mode="lines",
                                line=dict(color=info["color"], width=2.5),
-                               hovertemplate="%{x|%m/%d}<br>%{y:,.0f}円<extra></extra>"))
+                               hovertemplate="%{x|%Y年%m月}<br>%{y:,.0f}円<extra></extra>"))
     st.plotly_chart(base_layout(fig, 300), width="stretch", config=PLOTLY_CONFIG)
 
     s = stats.loc[name]
     c1, c2 = st.columns(2)
     c1.metric("全期間の値上がり", f"{s['全期間%']:+.1f}%")
-    c2.metric("直近15日の値上がり", f"{s['直近15日%']:+.1f}%")
+    c2.metric("直近3年の値上がり", f"{s['直近3年%']:+.1f}%")
     c3, c4 = st.columns(2)
-    c3.metric("1日の平均リターン", f"{s['平均日次リターン%']:+.2f}%")
+    c3.metric("1年あたりの平均リターン", f"{s['平均年リターン%']:+.2f}%")
     c4.metric("値動きの激しさ", vol_label(s["ボラ%"]),
-              help="1日の値動きのばらつき(標準偏差)。大きいほど株価がジェットコースターのように動く。")
+              help="1年あたりの値動きのばらつき(標準偏差)。大きいほど株価がジェットコースターのように動く。")
 
     st.info(f"💡 **ここに注目!** {info['hint']}")
 
@@ -168,7 +168,7 @@ with tab_compare:
     fig2 = go.Figure()
     for n in STOCK_INFO:
         fig2.add_trace(go.Scatter(
-            x=[stats.loc[n, "ボラ%"]], y=[stats.loc[n, "平均日次リターン%"]],
+            x=[stats.loc[n, "ボラ%"]], y=[stats.loc[n, "平均年リターン%"]],
             mode="markers+text", name=n, text=[n], textposition="top center",
             textfont=dict(size=10),
             marker=dict(size=14, color=STOCK_INFO[n]["color"]),
