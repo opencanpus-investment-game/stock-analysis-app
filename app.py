@@ -148,7 +148,7 @@ with tab_compare:
         # 一緒に動く度(相関)
         corr = returns[picks[0]].corr(returns[picks[1]])
         if corr > 0.5:
-            word = "かなり一緒に動く 🤝"
+            word = "かなり一緒に動く "
         elif corr > 0.2:
             word = "やや一緒に動く"
         elif corr > -0.2:
